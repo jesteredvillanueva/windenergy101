@@ -278,6 +278,22 @@ canvas.confetti{position:absolute;inset:0;z-index:1;pointer-events:none;}
 </style>
 </head>
 <body>
+<style id="oready-style">
+#offlineReady.oready{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 14px);transform:translateX(-50%);display:flex;align-items:center;gap:9px;padding:9px 15px 9px 12px;font:600 14px/1.1 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:#0f2350;background:rgba(255,255,255,.94);border:1px solid rgba(31,83,198,.18);border-radius:999px;box-shadow:0 6px 20px rgba(15,35,80,.18);z-index:99999;cursor:pointer;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);transition:opacity .5s ease,transform .5s ease;max-width:calc(100vw - 24px);white-space:nowrap;user-select:none;-webkit-user-select:none;}
+#offlineReady .oready__dot{width:11px;height:11px;border-radius:50%;flex:0 0 auto;background:#f4a72c;}
+#offlineReady.oready--prep .oready__dot{animation:oreadyPulse 1.3s ease-out infinite;}
+#offlineReady.oready--ok{color:#0c5a2a;border-color:rgba(31,160,80,.28);background:rgba(240,255,246,.96);}
+#offlineReady.oready--ok .oready__dot{background:#1fa050;animation:none;box-shadow:none;}
+#offlineReady.oready--warn{color:#8a3a00;border-color:rgba(214,110,20,.32);background:rgba(255,248,240,.97);}
+#offlineReady.oready--warn .oready__dot{background:#e0791e;animation:none;box-shadow:none;}
+#offlineReady.oready--hide{opacity:0;transform:translateX(-50%) translateY(10px);pointer-events:none;}
+@keyframes oreadyPulse{0%{box-shadow:0 0 0 0 rgba(244,167,44,.55);}70%{box-shadow:0 0 0 9px rgba(244,167,44,0);}100%{box-shadow:0 0 0 0 rgba(244,167,44,0);}}
+@media (prefers-reduced-motion:reduce){#offlineReady .oready__dot{animation:none !important;}}
+</style>
+<div id="offlineReady" class="oready oready--prep" role="status" aria-live="polite" title="Tap to dismiss">
+  <span class="oready__dot" aria-hidden="true"></span>
+  <span class="oready__txt">Preparing offline copy…</span>
+</div>
 
 <!-- drifting clouds -->
 <div class="sky" aria-hidden="true">
@@ -1883,7 +1899,25 @@ let deferredPrompt=null;
 window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredPrompt=e;});
 
 if('serviceWorker' in navigator){
-  window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
+  var _orBadge=document.getElementById('offlineReady');
+  var _orTxt=_orBadge?_orBadge.querySelector('.oready__txt'):null;
+  var _orDone=false;
+  function _orSet(cls,msg){if(!_orBadge)return;_orBadge.classList.remove('oready--prep','oready--ok','oready--warn');_orBadge.classList.add(cls);if(_orTxt&&msg)_orTxt.textContent=msg;}
+  function _orReady(){if(_orDone)return;_orDone=true;_orSet('oready--ok','Offline-ready \u2713  \u00b7  safe to disconnect');setTimeout(function(){if(_orBadge)_orBadge.classList.add('oready--hide');},6000);}
+  function _orWarn(){if(_orDone)return;_orSet('oready--warn','Still caching \u2014 keep Wi-Fi on');}
+  function _orVerify(){try{if(!('caches' in window))return Promise.resolve(false);return caches.keys().then(function(keys){return keys.reduce(function(p,k){return p.then(function(found){if(found)return true;return caches.open(k).then(function(c){return c.match('index.html').then(function(h){return h||c.match('./index.html');}).then(function(h){return h||c.match('./');}).then(function(h){return !!h;});});});},Promise.resolve(false));});}catch(e){return Promise.resolve(false);}}
+  if(_orBadge)_orBadge.addEventListener('click',function(){_orBadge.classList.add('oready--hide');});
+  navigator.serviceWorker.addEventListener('message',function(e){if(e.data&&e.data.type==='CACHE_READY')_orReady();});
+  window.addEventListener('load',function(){
+    navigator.serviceWorker.register('sw.js').then(function(){
+      if(navigator.serviceWorker.controller){_orVerify().then(function(ok){if(ok)_orReady();});try{navigator.serviceWorker.controller.postMessage({type:'CHECK_CACHE'});}catch(_){}}
+    }).catch(function(){_orWarn();});
+    navigator.serviceWorker.ready.then(function(){
+      if(navigator.serviceWorker.controller){_orVerify().then(function(ok){if(ok)_orReady();});}
+      else{navigator.serviceWorker.addEventListener('controllerchange',function(){_orVerify().then(function(ok){if(ok)_orReady();});},{once:true});}
+    });
+    setTimeout(function(){if(!_orDone)_orWarn();},20000);
+  });
 }
 
 /* start on the intro screen */
