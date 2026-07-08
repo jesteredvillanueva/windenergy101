@@ -945,18 +945,62 @@ function renderOverview(){
 function svgScale(svg){ const vb=svg.viewBox.baseVal, r=svg.getBoundingClientRect();
   return { sx:vb.width/r.width, sy:vb.height/r.height, rect:r, vb }; }
 function ptr(e){ return e.touches? e.touches[0] : e; }
+
+/* ---- responsive scene fitting ----
+   Each scene's core art has a natural box (w×h). We size the viewBox so its
+   aspect EXACTLY matches the stage on screen — so the art always fills the
+   stage edge-to-edge (big, no letterbox, no stretch, no crop) on ANY device
+   shape, wide or square. The full-bleed sky/ground underlays are resized to
+   cover whatever padding the fit introduces. */
+const SCENEFIT={
+  1:{w:400,h:300,g:[{y:236}]},
+  2:{w:400,h:300,g:[{y:210,side:'land'},{y:215,side:'sea'}]},
+  3:{w:400,h:320,g:[{y:270}]},
+  4:{w:420,h:300,g:[]},
+  5:{w:480,h:280,g:[{y:230}]},
+  6:{w:460,h:300,g:[{y:244}]},
+  7:{w:460,h:300,g:[{y:250}]}
+};
+function fitScene(n){
+  const svg=$(`#scene${n} svg`), cfg=SCENEFIT[n]; if(!svg||!cfg) return;
+  const r=svg.getBoundingClientRect(); if(!r.width||!r.height) return;
+  const sAR=r.width/r.height, cAR=cfg.w/cfg.h;
+  let vbX,vbY,vbW,vbH;
+  if(sAR>=cAR){ vbH=cfg.h; vbW=cfg.h*sAR; vbX=(cfg.w-vbW)/2; vbY=0; }   // wide stage: art fills height
+  else        { vbW=cfg.w; vbH=cfg.w/sAR; vbX=0; vbY=(cfg.h-vbH)/2; }   // tall stage: art fills width
+  svg.setAttribute('viewBox',`${vbX.toFixed(1)} ${vbY.toFixed(1)} ${vbW.toFixed(1)} ${vbH.toFixed(1)}`);
+  const bottom=vbY+vbH;
+  const sky=svg.querySelector('.uSky');
+  if(sky){ sky.setAttribute('x',vbX.toFixed(1)); sky.setAttribute('y',vbY.toFixed(1));
+           sky.setAttribute('width',vbW.toFixed(1)); sky.setAttribute('height',vbH.toFixed(1)); }
+  svg.querySelectorAll('.uGround').forEach(g=>{
+    const gy=+g.dataset.y; let gx=vbX, gw=vbW;
+    if(g.dataset.side==='land'){ gx=vbX; gw=200-vbX; }
+    else if(g.dataset.side==='sea'){ gx=200; gw=vbX+vbW-200; }
+    g.setAttribute('x',gx.toFixed(1)); g.setAttribute('y',gy);
+    g.setAttribute('width',Math.max(0,gw).toFixed(1)); g.setAttribute('height',Math.max(0,bottom-gy).toFixed(1));
+  });
+}
+let __fitRAF=null;
+function fitCurrent(){ if(!current||!/^step[1-7]$/.test(current)) return;
+  const n=+current.replace('step',''); if(__fitRAF)cancelAnimationFrame(__fitRAF);
+  __fitRAF=requestAnimationFrame(()=>fitScene(n)); }
+window.addEventListener('resize',fitCurrent);
+window.addEventListener('orientationchange',fitCurrent);
+
 const sceneBuilt={};
-function armStep(id){ const n=+id.replace('step',''); if(!sceneBuilt[n]){ buildScene(n); sceneBuilt[n]=true; } resetScene(n); }
+function armStep(id){ const n=+id.replace('step',''); if(!sceneBuilt[n]){ buildScene(n); sceneBuilt[n]=true; } resetScene(n); requestAnimationFrame(()=>fitScene(n)); }
 
 function buildScene(n){
   const host=$(`#scene${n}`);
   if(n===1) host.innerHTML=`
-   <svg viewBox="0 0 400 300" preserveAspectRatio="xMidYMid meet">
+   <svg viewBox="-160 0 720 300" preserveAspectRatio="xMidYMid meet">
     <defs>
       <linearGradient id="sky1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7cc9ef"/><stop offset=".65" stop-color="#c9ecff"/><stop offset="1" stop-color="#eefaff"/></linearGradient>
       <radialGradient id="sunglow1"><stop offset="0" stop-color="#ffe98a" stop-opacity=".85"/><stop offset=".6" stop-color="#ffe98a" stop-opacity=".35"/><stop offset="1" stop-color="#ffe98a" stop-opacity="0"/></radialGradient>
     </defs>
-    <rect width="400" height="300" fill="url(#sky1)"/>
+    <rect class="uSky" x="-160" y="0" width="720" height="300" fill="url(#sky1)"/>
+    <rect class="uGround" data-y="236" x="-160" y="236" width="720" height="64" fill="#9ad36b"/>
     <!-- rainbow reward (revealed when the step is completed) -->
     <g id="rainbow1" opacity="0" style="transition:opacity .8s">
       ${['#ff5f6d','#ff9f43','#ffd23f','#5fc35f','#4583FA','#9b6dd6'].map((c,i)=>`<path d="M ${34+i*9} 300 A ${166-i*9} ${166-i*9} 0 0 1 ${366-i*9} 300" fill="none" stroke="${c}" stroke-width="9" opacity=".8"/>`).join('')}
@@ -1035,14 +1079,16 @@ function buildScene(n){
    </svg>`;
 
   if(n===2) host.innerHTML=`
-   <svg viewBox="0 0 400 300" preserveAspectRatio="xMidYMid meet">
+   <svg viewBox="-160 0 720 300" preserveAspectRatio="xMidYMid meet">
     <defs>
       <linearGradient id="sky2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7cc9ef"/><stop offset=".7" stop-color="#cdeeff"/><stop offset="1" stop-color="#eefaff"/></linearGradient>
       <linearGradient id="land2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f6b567"/><stop offset="1" stop-color="#ef9b3f"/></linearGradient>
       <linearGradient id="sea2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6fc3ea"/><stop offset="1" stop-color="#3f9fd4"/></linearGradient>
       <radialGradient id="sunglow2"><stop offset="0" stop-color="#ffe98a" stop-opacity=".8"/><stop offset="1" stop-color="#ffe98a" stop-opacity="0"/></radialGradient>
     </defs>
-    <rect width="400" height="300" fill="url(#sky2)"/>
+    <rect class="uSky" x="-160" y="0" width="720" height="300" fill="url(#sky2)"/>
+    <rect class="uGround" data-y="210" data-side="land" x="-160" y="210" width="360" height="90" fill="url(#land2)"/>
+    <rect class="uGround" data-y="215" data-side="sea" x="200" y="215" width="360" height="85" fill="url(#sea2)"/>
     <!-- smiling sun in the corner (the Step 1 friend, still heating the land!) -->
     <g transform="translate(52,52)">
       <circle r="44" fill="url(#sunglow2)"><animate attributeName="r" values="40;48;40" dur="3s" repeatCount="indefinite"/></circle>
@@ -1144,12 +1190,13 @@ function buildScene(n){
    </svg>`;
 
   if(n===3) host.innerHTML=`
-   <svg viewBox="0 0 400 320" preserveAspectRatio="xMidYMid meet">
+   <svg viewBox="-184 0 768 320" preserveAspectRatio="xMidYMid meet">
     <defs>
       <linearGradient id="sky3" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7cc9ef"/><stop offset=".7" stop-color="#cdeeff"/><stop offset="1" stop-color="#eefaff"/></linearGradient>
       <radialGradient id="sunglow3"><stop offset="0" stop-color="#ffe98a" stop-opacity=".8"/><stop offset="1" stop-color="#ffe98a" stop-opacity="0"/></radialGradient>
     </defs>
-    <rect width="400" height="320" fill="url(#sky3)"/>
+    <rect class="uSky" x="-184" y="0" width="768" height="320" fill="url(#sky3)"/>
+    <rect class="uGround" data-y="270" x="-184" y="270" width="768" height="50" fill="#9ad36b"/>
     <!-- smiling sun friend -->
     <g transform="translate(48,50)">
       <circle r="40" fill="url(#sunglow3)"><animate attributeName="r" values="36;44;36" dur="3s" repeatCount="indefinite"/></circle>
@@ -1227,12 +1274,12 @@ function buildScene(n){
    </svg>`;
 
   if(n===4) host.innerHTML=`
-   <svg viewBox="0 0 420 300" preserveAspectRatio="xMidYMid meet">
+   <svg viewBox="-150 0 720 300" preserveAspectRatio="xMidYMid meet">
     <defs>
       <linearGradient id="sky4" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9fd8f0"/><stop offset="1" stop-color="#e8f6ff"/></linearGradient>
       <linearGradient id="box4" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fffaf0"/><stop offset="1" stop-color="#fbf0d6"/></linearGradient>
     </defs>
-    <rect width="420" height="300" fill="url(#sky4)"/>
+    <rect class="uSky" x="-150" y="0" width="720" height="300" fill="url(#sky4)"/>
     <text x="210" y="34" text-anchor="middle" font-family="Fredoka, system-ui, sans-serif" font-weight="700" fill="#16567e" font-size="15">Inside the nacelle</text>
     <rect x="60" y="70" width="300" height="150" rx="22" fill="url(#box4)" stroke="#dcd2b8" stroke-width="4"/>
     <!-- corner screws -->
@@ -1310,12 +1357,13 @@ function buildScene(n){
    </svg>`;
 
   if(n===5) host.innerHTML=`
-   <svg viewBox="0 0 480 280" preserveAspectRatio="xMidYMid meet">
+   <svg viewBox="-96 0 672 280" preserveAspectRatio="xMidYMid meet">
     <defs>
       <linearGradient id="sky5" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7cc9ef"/><stop offset=".7" stop-color="#cdeeff"/><stop offset="1" stop-color="#eefaff"/></linearGradient>
       <radialGradient id="sunglow5"><stop offset="0" stop-color="#ffe98a" stop-opacity=".8"/><stop offset="1" stop-color="#ffe98a" stop-opacity="0"/></radialGradient>
     </defs>
-    <rect width="480" height="280" fill="url(#sky5)"/>
+    <rect class="uSky" x="-96" y="0" width="672" height="280" fill="url(#sky5)"/>
+    <rect class="uGround" data-y="230" x="-96" y="230" width="672" height="50" fill="#9ad36b"/>
     <!-- smiling sun -->
     <g transform="translate(428,38)">
       <circle r="32" fill="url(#sunglow5)"><animate attributeName="r" values="28;36;28" dur="3s" repeatCount="indefinite"/></circle>
@@ -1414,12 +1462,13 @@ function buildScene(n){
    </svg>`;
 
   if(n===6) host.innerHTML=`
-   <svg viewBox="0 0 460 300" preserveAspectRatio="xMidYMid meet">
+   <svg viewBox="-130 0 720 300" preserveAspectRatio="xMidYMid meet">
     <defs>
       <linearGradient id="sky6d" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8fc7ea"/><stop offset=".65" stop-color="#ffe9c9"/><stop offset="1" stop-color="#fff3dc"/></linearGradient>
       <radialGradient id="sunglow6"><stop offset="0" stop-color="#ffd9a0" stop-opacity=".85"/><stop offset="1" stop-color="#ffd9a0" stop-opacity="0"/></radialGradient>
     </defs>
-    <rect width="460" height="300" fill="url(#sky6d)"/>
+    <rect class="uSky" x="-130" y="0" width="720" height="300" fill="url(#sky6d)"/>
+    <rect class="uGround" data-y="244" x="-130" y="244" width="720" height="56" fill="#9ad36b"/>
     <!-- late-afternoon sun -->
     <g transform="translate(404,44)">
       <circle r="30" fill="url(#sunglow6)"><animate attributeName="r" values="26;34;26" dur="3s" repeatCount="indefinite"/></circle>
@@ -1496,11 +1545,12 @@ function buildScene(n){
    </svg>`;
 
   if(n===7) host.innerHTML=`
-   <svg viewBox="0 0 460 300" preserveAspectRatio="xMidYMid meet">
+   <svg viewBox="-130 0 720 300" preserveAspectRatio="xMidYMid meet">
     <defs>
       <linearGradient id="sky7" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4a6db5"/><stop offset=".55" stop-color="#7fa8d8"/><stop offset=".85" stop-color="#f2c48d"/><stop offset="1" stop-color="#f7d9a1"/></linearGradient>
     </defs>
-    <rect width="460" height="300" fill="url(#sky7)"/>
+    <rect class="uSky" x="-130" y="0" width="720" height="300" fill="url(#sky7)"/>
+    <rect class="uGround" data-y="250" x="-130" y="250" width="720" height="50" fill="#7bbf5a"/>
     <!-- sleepy crescent moon -->
     <g transform="translate(52,44)">
       <circle r="17" fill="#fff7d6"/>
@@ -1659,7 +1709,7 @@ function arm3(){
   pin.setAttribute('transform','rotate(0)');blur.style.opacity=0;burst.style.opacity=0;
   faceA.style.opacity=1;faceB.style.opacity=0;
   const ang=p=>{const r=svg.getBoundingClientRect(),sc=svgScale(svg);
-    return Math.atan2((p.clientY-r.top)*sc.sy-cy,(p.clientX-r.left)*sc.sx-cx)*180/Math.PI;};
+    return Math.atan2((p.clientY-r.top)*sc.sy+sc.vb.y-cy,(p.clientX-r.left)*sc.sx+sc.vb.x-cx)*180/Math.PI;};
   cleanup=onDrag(svg,{onStart:p=>{hint.style.opacity=0;last=ang(p);},onMove:p=>{
     if(finished)return;
     const a=ang(p);let d=a-last;if(d>180)d-=360;if(d<-180)d+=360;last=a;
@@ -1718,7 +1768,7 @@ function arm5(){
   cleanup=onDrag(svg,{onStart:()=>hint.style.opacity=0,onMove:p=>{
     if(finished)return;
     const r=svg.getBoundingClientRect(),sc=svgScale(svg);
-    const prog=Math.max(0,Math.min(1,((p.clientX-r.left)*sc.sx-x0)/(x1-x0)));
+    const prog=Math.max(0,Math.min(1,((p.clientX-r.left)*sc.sx+sc.vb.x-x0)/(x1-x0)));
     glow.style.strokeDashoffset=len*(1-prog);
     const pt=glow.getPointAtLength(len*prog);                                  // ⚡ spark rides the wire!
     zap.setAttribute('transform',`translate(${pt.x.toFixed(1)},${pt.y.toFixed(1)})`);

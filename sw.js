@@ -1,5 +1,5 @@
 /* Service Worker — How a Wind Turbine Works 101 (Wind Explorer theme) */
-const CACHE_NAME = 'wind101-cache-v9';
+const CACHE_NAME = 'wind101-cache-v11';
 const ASSETS = [
   './',
   './index.html',
