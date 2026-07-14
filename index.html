@@ -274,6 +274,38 @@ canvas.confetti{position:absolute;inset:0;z-index:1;pointer-events:none;}
   .dots .dot{width:26px;height:26px;font-size:.85rem;}
   .finwindy{width:110px;height:126px;} .finbadge{width:246px;height:228px;margin-bottom:36px;}
 }
+
+/* ===== ONE LAYOUT FOR ALL ORIENTATIONS =====================================
+   Portrait is the single source of truth. We never rebuild the layout for
+   landscape. Instead the content column stays portrait-proportioned and is
+   centered; on wider screens the app's own sky fills the sides (never white),
+   so a rotated tablet shows the identical portrait UI on a wider canvas.
+   The cap is tied to viewport HEIGHT: in portrait it never constrains (the
+   column fills the width exactly as before) and it only frames landscape. */
+:root{ --frameK:0.83; }   /* portrait aspect (w/h) of the reference design */
+/* Keep the top bar full-width (normal chrome). Frame the CONTENT column to a
+   portrait width and centre it. The cap is tied to viewport HEIGHT, so in
+   portrait it never constrains (content fills the width exactly as the
+   reference) and only in landscape does it become a centred portrait column
+   with the app's own sky on either side — same UI, just a wider canvas. */
+.main{ width:min(100%, calc(100dvh * var(--frameK))); margin-inline:auto; }
+.introInner{ width:min(100%, calc(100dvh * var(--frameK))); max-width:860px; }
+
+/* ===== FINISHED screen: keep "Explore Again!" in view on short (landscape)
+   viewports. Root cause: the fixed-size badge + banner + text stack is taller
+   than the available height once the screen is short, pushing the button below
+   the fold. Fix: in landscape, size the tall elements to the viewport height so
+   the whole stack (button included) fits with headroom. Portrait is untouched. */
+@media (orientation:landscape){
+  #finished{ padding-top:8px; padding-bottom:8px; }
+  .finwrap{ gap:2px; }
+  .finbanner{ font-size:clamp(1.6rem, 4.3vh, 3.4rem); }
+  .finwindy{ width:clamp(64px, 11vh, 112px); height:auto; aspect-ratio:112/118; }
+  .finbadge{ width:min(266px, 25vh); height:auto; aspect-ratio:266/247; margin:2px auto 34px; }
+  #badgeName{ font-size:.9rem; padding:2px 14px; top:calc(100% + 4px); }
+  .fintext{ font-size:clamp(.9rem, 1.85vh, 1.05rem); }
+  .againBtn{ margin-top:2px; }
+}
 @media(prefers-reduced-motion:reduce){*{animation-duration:.001s!important;animation-iteration-count:1!important;}}
 </style>
 </head>
