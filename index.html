@@ -176,6 +176,8 @@ body{font-family:var(--body);color:var(--ink);overflow:hidden;
 .step{padding:10px 14px 12px;}
 .stepwrap{flex:1;display:flex;flex-direction:column;gap:10px;min-height:0;max-width:1100px;
   width:100%;margin:0 auto;}
+/* wide/landscape kiosk: give the scene the room the reference build has */
+@media (orientation:landscape) and (min-width:900px){ .stepwrap{max-width:1180px;} }
 .stephead{display:flex;align-items:center;justify-content:space-between;gap:12px;}
 .mapbtn{background:#fff;border:2px solid #cfe4f6;color:var(--blue);font-family:var(--disp);font-weight:700;
   font-size:.92rem;border-radius:16px;padding:8px 15px;cursor:pointer;box-shadow:0 4px 12px rgba(20,70,120,.12);
@@ -276,20 +278,18 @@ canvas.confetti{position:absolute;inset:0;z-index:1;pointer-events:none;}
 }
 
 /* ===== ONE LAYOUT FOR ALL ORIENTATIONS =====================================
-   Portrait is the single source of truth. We never rebuild the layout for
-   landscape. Instead the content column stays portrait-proportioned and is
-   centered; on wider screens the app's own sky fills the sides (never white),
-   so a rotated tablet shows the identical portrait UI on a wider canvas.
-   The cap is tied to viewport HEIGHT: in portrait it never constrains (the
-   column fills the width exactly as before) and it only frames landscape. */
-:root{ --frameK:0.83; }   /* portrait aspect (w/h) of the reference design */
-/* Keep the top bar full-width (normal chrome). Frame the CONTENT column to a
-   portrait width and centre it. The cap is tied to viewport HEIGHT, so in
-   portrait it never constrains (content fills the width exactly as the
-   reference) and only in landscape does it become a centred portrait column
-   with the app's own sky on either side — same UI, just a wider canvas. */
-.main{ width:min(100%, calc(100dvh * var(--frameK))); margin-inline:auto; }
-.introInner{ width:min(100%, calc(100dvh * var(--frameK))); max-width:860px; }
+   The app FILLS the stage on every aspect ratio — portrait, landscape, wide
+   kiosk. There is no portrait-column cap: an earlier build tied the content
+   width to `100dvh * 0.83`, which on a landscape tablet squeezed the whole UI
+   into a narrow centred column with sky either side (small map, tiny text).
+   Now the top bar and the content both run the full width, and each screen
+   governs its own comfortable measure:
+     • #overview  -> full-bleed panel (the map wants every pixel)
+     • .stepwrap  -> max-width:1100px, centred (a readable card measure)
+   `fitScene()` already re-fits every scene viewBox to the stage's real aspect
+   ratio, so the art still fills edge-to-edge with no letterbox or crop. */
+.main{ width:100%; margin-inline:auto; }
+.introInner{ width:100%; max-width:860px; }
 
 /* ===== FINISHED screen: keep "Explore Again!" in view on short (landscape)
    viewports. Root cause: the fixed-size badge + banner + text stack is taller
@@ -297,14 +297,27 @@ canvas.confetti{position:absolute;inset:0;z-index:1;pointer-events:none;}
    the fold. Fix: in landscape, size the tall elements to the viewport height so
    the whole stack (button included) fits with headroom. Portrait is untouched. */
 @media (orientation:landscape){
-  #finished{ padding-top:8px; padding-bottom:8px; }
-  .finwrap{ gap:2px; }
-  .finbanner{ font-size:clamp(1.6rem, 4.3vh, 3.4rem); }
-  .finwindy{ width:clamp(64px, 11vh, 112px); height:auto; aspect-ratio:112/118; }
-  .finbadge{ width:min(266px, 25vh); height:auto; aspect-ratio:266/247; margin:2px auto 34px; }
-  #badgeName{ font-size:.9rem; padding:2px 14px; top:calc(100% + 4px); }
-  .fintext{ font-size:clamp(.9rem, 1.85vh, 1.05rem); }
-  .againBtn{ margin-top:2px; }
+  /* Never scroll to reach the button: the stack is height-driven and the
+     screen centres what's left over. */
+  #finished{ padding:6px 14px; overflow:hidden; justify-content:center; }
+  .finwrap{ gap:2px; margin:0 auto; max-height:100%; }
+  .finbanner{ font-size:clamp(1.35rem, 4vh, 3.4rem); }
+  .finwindy{ width:clamp(52px, 9vh, 112px); height:auto; aspect-ratio:112/118; }
+  .finbadge{ width:min(266px, 23vh); height:auto; aspect-ratio:266/247;
+             margin:2px auto clamp(30px, 3.8vh, 42px); }
+  #badgeName{ font-size:clamp(.75rem, 1.6vh, 1.05rem); padding:2px 14px; top:calc(100% + 4px); }
+  .fintext{ font-size:clamp(.78rem, 1.7vh, 1.05rem); line-height:1.4; }
+  .againBtn{ margin-top:2px; font-size:clamp(1rem, 2.6vh, 1.4rem); padding:clamp(8px,1.4vh,15px) clamp(28px,5vh,44px);
+             box-shadow:0 6px 0 #2f8e5a, 0 12px 20px rgba(20,120,70,.3); }
+  .againBtn:active{ box-shadow:0 2px 0 #2f8e5a; }
+}
+/* Short landscape (a laid-down tablet with browser chrome): squeeze harder so
+   the button still clears the fold. */
+@media (orientation:landscape) and (max-height:620px){
+  .finbanner{ font-size:clamp(1.1rem, 3.6vh, 2rem); }
+  .finwindy{ width:clamp(44px, 8vh, 70px); }
+  .finbadge{ width:min(200px, 21vh); margin:2px auto 30px; }
+  .fintext{ font-size:clamp(.7rem, 1.55vh, .9rem); }
 }
 @media(prefers-reduced-motion:reduce){*{animation-duration:.001s!important;animation-iteration-count:1!important;}}
 </style>
